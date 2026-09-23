@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family:FontN;
+  src: url('/fonts/Nomaden.ttf');
+}
+.FontN{
+  font-family:FontN;
+}
+
+@font-face {
+  font-family:FontPEL;
+  src: url('/fonts/Poppins-ExtraLight.ttf');
+}
+.FontPEL{
+  font-family:FontPEL;
+}
+
+@font-face {
+  font-family:FontPL;
+  src: url('/fonts/Poppins-Light.ttf');
+}
+.FontPL{
+  font-family:FontPL;
+}
+
+@font-face {
+  font-family:FontPM;
+  src: url('/fonts/Poppins-Medium.ttf');
+}
+.FontPM{
+  font-family:FontPM;
+}
+
+@font-face {
+  font-family:FontPR;
+  src: url('/fonts/Poppins-Regular.ttf');
+}
+.FontPR{
+  font-family:FontPR;
+}
+
+@font-face {
+  font-family:FontPSB;
+  src: url('/fonts/Poppins-SemiBold.ttf');
+}
+.FontPSB{
+  font-family:FontPSB;
+}
+
+@font-face {
+  font-family:FontPT;
+  src: url('/fonts/Poppins-Thin.ttf');
+}
+.FontPT{
+  font-family:FontPT;
+}
+
+
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+/* background: var(--background); */
+
+
+body {
+  width: 100vw;
+  position: relative;
+  font-size: 16px;
+  overflow-x: hidden;
+}
