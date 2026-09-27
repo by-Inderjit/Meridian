@@ -1,3 +1,4 @@
+// UseContainerTracker.jsx
 "use client";
 
 import { useEffect, useState } from 'react';
@@ -6,6 +7,8 @@ export const useContainerTracker = () => {
   const [containers, setContainers] = useState([]);
 
   useEffect(() => {
+    let timeoutId = null;
+    
     const updateContainers = () => {
       const elements = document.querySelectorAll('.CONTAINER');
       const currentData = [];
@@ -33,14 +36,21 @@ export const useContainerTracker = () => {
       });
     };
 
+    // Debounce the mutation trigger
+    const handleMutation = () => {
+      if(timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(updateContainers, 150);
+    };
+
     updateContainers();
 
-    window.addEventListener('resize', updateContainers);
-    const observer = new MutationObserver(updateContainers);
+    window.addEventListener('resize', handleMutation);
+    const observer = new MutationObserver(handleMutation);
     observer.observe(document.body, { childList: true, subtree: true });
 
     return () => {
-      window.removeEventListener('resize', updateContainers);
+      window.removeEventListener('resize', handleMutation);
+      if(timeoutId) clearTimeout(timeoutId);
       observer.disconnect();
     };
   }, []);

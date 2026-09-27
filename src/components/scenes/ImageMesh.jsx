@@ -4,10 +4,11 @@ import { useRef, useMemo, useEffect } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
-
 import { useContainerTracker } from "@/components/functions/UseContainerTracker.jsx";
+import { useLenis } from "lenis/react"; // Import Lenis hook to sync scroll without delay
 
-// --- SHADERS ---
+const TRAIL_SIZE = 32; // Halved to prevent GPU overheating
+
 const vertexShader = `
   varying vec2 vUv;
   void main() {
@@ -20,7 +21,7 @@ const fragmentShader = `
   uniform sampler2D uTexture;
   uniform vec2 uResolution;
   uniform vec2 uImageRes;
-  uniform vec2 uTrail[64];
+  uniform vec2 uTrail[32]; 
   uniform float uTime;
   uniform float uVelocity;
   uniform float uBrushSize;
@@ -40,7 +41,7 @@ const fragmentShader = `
 
     vec2 totalOffset = vec2(0.0);
     
-    for(int i = 0; i < 63; i++) {
+    for(int i = 0; i < 31; i++) {
       vec2 a = uTrail[i];
       vec2 b = uTrail[i+1];
       vec2 pa = vUv - a;
@@ -56,7 +57,7 @@ const fragmentShader = `
       vec2 dir = vUv - closestPoint;
       float dist = length(dir);
 
-      float age = float(i) / 63.0;
+      float age = float(i) / 31.0;
       float intensity = pow(1.0 - age, 2.0); 
       
       float taper = sin(age * 3.1415926535);
@@ -81,13 +82,14 @@ const fragmentShader = `
   }
 `;
 
-const TRAIL_SIZE = 64;
-
-// --- INDIVIDUAL MESH ITEM FOR EACH CONTAINER ---
 const SingleImageMesh = ({ element, imgSrc, brushSize = 0.07 }) => {
   const meshRef = useRef();
   const materialRef = useRef();
   const { size } = useThree();
+  
+  // Cache layout to completely prevent CPU layout thrashing
+  const rectCache = useRef({ left: 0, absoluteTop: 0, width: 0, height: 0 });
+  const lenis = useLenis(); // Grab the smooth scroll instance
 
   const textureUrl = imgSrc || "/images/home/HeroBg.jpg";
   const texture = useTexture(textureUrl);
@@ -101,7 +103,7 @@ const SingleImageMesh = ({ element, imgSrc, brushSize = 0.07 }) => {
     current: new THREE.Vector2(-10, -10),
     target: new THREE.Vector2(-10, -10),
     lastPos: new THREE.Vector2(-10, -10),
-    isHovered: false, // Tracks if mouse is currently inside the container
+    isHovered: false,
   });
 
   const uniforms = useMemo(
@@ -119,36 +121,62 @@ const SingleImageMesh = ({ element, imgSrc, brushSize = 0.07 }) => {
       uVelocity: { value: 0 },
       uBrushSize: { value: brushSize },
     }),
-    [texture, brushSize]
+    [texture, brushSize, trail]
   );
 
+  // Measure DOM exactly once (or on window resize) instead of 60x a second
   useEffect(() => {
-    if (materialRef.current && texture?.image) {
-      materialRef.current.uniforms.uImageRes.value.set(
-        texture.image.width,
-        texture.image.height
-      );
-      materialRef.current.uniforms.uBrushSize.value = brushSize;
-    }
-  }, [texture, brushSize]);
+    const updateRect = () => {
+      if (element) {
+        const rect = element.getBoundingClientRect();
+        rectCache.current = {
+          left: rect.left,
+          width: rect.width,
+          height: rect.height,
+          // Calculate the true, unmoving position of the container relative to the top of the document
+          absoluteTop: rect.top + window.scrollY, 
+        };
+        
+        if (materialRef.current) {
+          materialRef.current.uniforms.uResolution.value.set(rect.width, rect.height);
+          if (texture?.image) {
+            materialRef.current.uniforms.uImageRes.value.set(texture.image.width, texture.image.height);
+            materialRef.current.uniforms.uBrushSize.value = brushSize;
+          }
+        }
+      }
+    };
 
-  // Precise Mouse Enter/Move Listener
+    updateRect();
+    window.addEventListener("resize", updateRect);
+    
+    // Fallback timer to catch layout shifts from fonts or GSAP loading
+    const timer = setTimeout(updateRect, 500); 
+
+    return () => {
+      window.removeEventListener("resize", updateRect);
+      clearTimeout(timer);
+    };
+  }, [element, texture, brushSize]);
+
   useEffect(() => {
     const handleGlobalPointerMove = (e) => {
       if (!element) return;
-      const rect = element.getBoundingClientRect();
+      const { left, width, height, absoluteTop } = rectCache.current;
+      if (width === 0) return;
 
-      const uvX = (e.clientX - rect.left) / rect.width;
-      const uvY = 1.0 - (e.clientY - rect.top) / rect.height;
+      // Ensure UV coordinates map accurately to the scrolled position
+      const scrollY = lenis ? lenis.scroll : window.scrollY;
+      const currentTop = absoluteTop - scrollY;
+
+      const uvX = (e.clientX - left) / width;
+      const uvY = 1.0 - (e.clientY - currentTop) / height;
 
       const isInside = uvX >= 0 && uvX <= 1 && uvY >= 0 && uvY <= 1;
 
       if (isInside) {
-        // If mouse JUST entered the div from outside
         if (!mouseState.current.isHovered) {
           mouseState.current.isHovered = true;
-          
-          // Snap all points immediately to exact entry position (No lerp/stretch from old positions)
           mouseState.current.current.set(uvX, uvY);
           mouseState.current.target.set(uvX, uvY);
           mouseState.current.lastPos.set(uvX, uvY);
@@ -161,35 +189,35 @@ const SingleImageMesh = ({ element, imgSrc, brushSize = 0.07 }) => {
             materialRef.current.uniforms.uVelocity.value = 0;
           }
         } else {
-          // Normal mouse move inside the div
           mouseState.current.target.set(uvX, uvY);
         }
       } else {
-        // Mouse left the div bounds
         mouseState.current.isHovered = false;
       }
     };
 
     window.addEventListener("pointermove", handleGlobalPointerMove);
     return () => window.removeEventListener("pointermove", handleGlobalPointerMove);
-  }, [element, trail]);
+  }, [element, trail, lenis]);
 
-  // ZERO-DELAY SYNCHRONOUS RENDER LOOP
+  // Render loop matches scroll perfectly without querying the DOM
   useFrame((state, delta) => {
     if (!meshRef.current || !element) return;
 
-    // Synchronous DOM tracking
-    const rect = element.getBoundingClientRect();
+    const { width, height, left, absoluteTop } = rectCache.current;
+    if (width === 0) return;
 
-    const x = rect.left + rect.width / 2 - size.width / 2;
-    const y = -(rect.top + rect.height / 2 - size.height / 2);
+    // Pull the exact interpolated scroll value directly from Lenis
+    const scrollY = lenis ? lenis.scroll : window.scrollY;
+    
+    // Calculate exact screen position based on Lenis scroll data
+    const currentTop = absoluteTop - scrollY;
 
-    meshRef.current.scale.set(rect.width, rect.height, 1);
+    const x = left + width / 2 - size.width / 2;
+    const y = -(currentTop + height / 2 - size.height / 2);
+
     meshRef.current.position.set(x, y, 0);
-
-    if (materialRef.current) {
-      materialRef.current.uniforms.uResolution.value.set(rect.width, rect.height);
-    }
+    meshRef.current.scale.set(width, height, 1);
 
     // Liquid Trail Physics
     const { current, target, lastPos } = mouseState.current;
@@ -214,7 +242,8 @@ const SingleImageMesh = ({ element, imgSrc, brushSize = 0.07 }) => {
 
   return (
     <mesh ref={meshRef}>
-      <planeGeometry args={[1, 1, 64, 64]} />
+      {/* 1x1 plane removes unnecessary CPU vertex calculations */}
+      <planeGeometry args={[1, 1, 1, 1]} />
       <shaderMaterial
         ref={materialRef}
         vertexShader={vertexShader}
@@ -226,7 +255,6 @@ const SingleImageMesh = ({ element, imgSrc, brushSize = 0.07 }) => {
   );
 };
 
-// --- MAIN WRAPPER COMPONENT ---
 const ImageMesh = ({ brushSize = 0.07 }) => {
   const containers = useContainerTracker();
 

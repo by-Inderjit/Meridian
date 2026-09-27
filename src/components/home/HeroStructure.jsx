@@ -49,7 +49,7 @@ const HeroStructure = () => {
           {HeroTitle.map((item, index) => {
             return (
               <div key={index} className=" w-fit h-fit">
-                <h1 className="FontN HeroTextTitle uppercase flex translate-y-full text-white">{item}</h1>
+                <h1 className="FontN HeroTextTitle uppercase flex translate-y-full WhiteText">{item}</h1>
               </div>
             );
           })}
