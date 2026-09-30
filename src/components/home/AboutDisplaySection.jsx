@@ -5,7 +5,7 @@ const AboutDisplaySection = () => {
     <div className="w-full h-fit flex px-10 pb-10 gap-5">
       {/* Left */}
       <div className="w-1/2 h-fit">
-        <div className="CONTAINER w-full  aspect-square ">
+        <div className="CONTAINER w-full aspect-square ">
           <img
             src="/images/home/HeroAboutLeft.jpg"
             alt="HeroAboutLeft"
@@ -16,7 +16,7 @@ const AboutDisplaySection = () => {
       {/* Right */}
       <div className="w-1/2 h-fit">
         {/* Img */}
-        <div className="CONTAINER w-[50%] aspect-square  mb-5 ">
+        <div className="CONTAINER w-[50%] aspect-square mb-5 ">
           <img
             src="/images/home/HeroAboutRight.jpg"
             alt="HeroAboutRight"
@@ -30,6 +30,13 @@ const AboutDisplaySection = () => {
           workplaces, and public spaces shaped by light, material, and the
           people who use them.
         </p>
+
+        {/* HiliteBOX - Added ID to target this position */}
+        <div 
+          id="hilite-box" 
+          className="w-[20px] h-[20px]  flex items-center justify-center "
+        >
+        </div>
       </div>
     </div>
   );
