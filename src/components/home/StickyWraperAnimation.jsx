@@ -2,41 +2,55 @@
 import gsap from "gsap";
 import ScrollTrigger from "gsap/dist/ScrollTrigger";
 import { useEffect } from "react";
+
 gsap.registerPlugin(ScrollTrigger);
 
 const StickyWraperAnimation = () => {
   useEffect(() => {
-    // Function to calculate the precise viewport coordinates of the box 
-    // exactly when the ScrollTrigger timeline activates.
+    let isAnimating = false; // Flag to hand over control between Ticker and ScrollTrigger
+
+    // 1. Continuously sync ScreenBall to hilite-box before the trigger hits
+    const trackBox = () => {
+      if (isAnimating) return; // Let ScrollTrigger handle positioning once triggered
+
+      const box = document.getElementById("hilite-box");
+      const ball = document.querySelector(".ScreenBall");
+
+      if (box && ball) {
+        const rect = box.getBoundingClientRect();
+        gsap.set(ball, {
+          x: rect.left,
+          y: rect.top,
+          width: rect.width,
+          height: rect.height,
+          borderRadius: "50%",
+          scale: 1,
+          rotation: 0,
+        });
+      }
+    };
+
+    // Add tracker to ticker so it updates smoothly on scroll & resize
+    gsap.ticker.add(trackBox);
+
+    // 2. Exact mathematical starting position for when the timeline triggers
     const getStartPosition = (axis) => {
       const box = document.getElementById("hilite-box");
       const trigger = document.querySelector(".BlankScreenWall");
-
       if (!box || !trigger) return 0;
 
       const boxRect = box.getBoundingClientRect();
       const triggerRect = trigger.getBoundingClientRect();
-
       const scrollY = window.scrollY || document.documentElement.scrollTop;
-      const scrollX = window.scrollX || document.documentElement.scrollLeft;
 
-      // Absolute positions on the page
-      const boxAbsoluteTop = boxRect.top + scrollY;
-      const boxAbsoluteLeft = boxRect.left + scrollX;
-      const triggerAbsoluteTop = triggerRect.top + scrollY;
+      if (axis === "x") return boxRect.left;
 
-      // The ScrollTrigger starts at "top 100%" (trigger hits bottom of viewport)
-      const startScrollY = triggerAbsoluteTop - window.innerHeight;
-
-      // Return coordinate relative to the viewport at the scroll-start position
-      if (axis === "y") return boxAbsoluteTop - startScrollY;
-      if (axis === "x") return boxAbsoluteLeft - scrollX;
-    };
-
-    const getBoxSize = (prop) => {
-      const box = document.getElementById("hilite-box");
-      if (!box) return 20; // Fallback size
-      return prop === "width" ? box.offsetWidth : box.offsetHeight;
+      if (axis === "y") {
+        const boxAbsoluteTop = boxRect.top + scrollY;
+        const triggerAbsoluteTop = triggerRect.top + scrollY;
+        const startScrollY = triggerAbsoluteTop - window.innerHeight;
+        return boxAbsoluteTop - startScrollY;
+      }
     };
 
     const SWTL = gsap.timeline({
@@ -45,19 +59,30 @@ const StickyWraperAnimation = () => {
         start: "top 100%",
         end: "bottom 0%",
         scrub: true,
-        invalidateOnRefresh: true, // Crucial: recalculates function values dynamically on resize/refresh
+        invalidateOnRefresh: true, // Recalculates function values dynamically on resize
+        onEnter: () => { isAnimating = true; },
+        onLeaveBack: () => { 
+          isAnimating = false; 
+          trackBox(); // Snap back exactly to hilite-box if scrolled backwards
+        },
       },
     });
 
-    // Label "a1": Set starting position based on HiliteBOX, animate rotation/border
+    // Label "a1": Set timeline starting position dynamically
     SWTL.fromTo(
       ".ScreenBall",
       {
         x: () => getStartPosition("x"),
         y: () => getStartPosition("y"),
-        width: () => getBoxSize("width"),
-        height: () => getBoxSize("height"),
-        borderRadius: "50%", // assuming it starts round
+        width: () => {
+          const box = document.getElementById("hilite-box");
+          return box ? box.offsetWidth : 20;
+        },
+        height: () => {
+          const box = document.getElementById("hilite-box");
+          return box ? box.offsetHeight : 20;
+        },
+        borderRadius: "50%", 
       },
       {
         rotation: 360,
@@ -94,19 +119,17 @@ const StickyWraperAnimation = () => {
     });
 
     return () => {
+      gsap.ticker.remove(trackBox);
       SWTL.kill();
-      // Safe cleanup of ScrollTriggers to prevent React strict-mode/HMR dupes
       ScrollTrigger.getAll().forEach((t) => t.kill());
     };
   }, []);
 
   return (
-    <div className="sticky top-0 z-50 h-0 w-full pointer-events-none ">
-      <div className="w-full h-screen relative overflow-hidden">
-        {/* Screen Cover */}
-        {/* Removed translation/centering classes so GSAP can precisely position it via 'absolute top-0 left-0' */}
-        <div className="ScreenBall bg-[#CECECE] absolute top-0 left-0"></div>
-      </div>
+    // Replaced 'sticky' with 'fixed top-0 left-0 w-full h-screen' 
+    // This anchors it globally to the viewport so X & Y coordinates align flawlessly.
+    <div className="fixed top-0 left-0 z-50 w-full h-screen pointer-events-none overflow-hidden">
+      <div className="ScreenBall bg-[#CECECE] absolute top-0 left-0 origin-center"></div>
     </div>
   );
 };

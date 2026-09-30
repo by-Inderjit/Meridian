@@ -4,6 +4,7 @@ import { PerspectiveCamera } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { useEffect, useState } from "react";
 import ImageMesh from "../scenes/ImageMesh";
+import VideoMesh from "../scenes/VideoMesh";
 
 const BGCanvas = () => {
   const distance = 200;
@@ -25,6 +26,7 @@ const BGCanvas = () => {
       <Canvas className="w-full h-full" dpr={[1, 1.5]}>
         <PerspectiveCamera makeDefault fov={fov} position={[0, 0, distance]} />
         <ImageMesh />
+        <VideoMesh />
       </Canvas>
     </div>
   );

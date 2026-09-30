@@ -251,7 +251,7 @@ const ProductGalleryView = () => {
           {/* BOTTOM TEXTER */}
           <div className="animate-text opacity-0 w-full h-fit absolute bottom-0 -z-10 left-0 pb-[8vh]">
             <div className="w-1/5 mx-auto">
-              <p className="text-black!  tracking-tighter">
+              <p className="text-black!  tracking-tight">
                 Studio Meridian has approached every project as a conversation —
                 between site and structure, client and craft, restraint and
                 ambition.
@@ -273,7 +273,7 @@ const ProductGalleryView = () => {
       {expandData && (
         <>
           <div
-            className={`fixed inset-0 z-[40] transition-opacity duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            className={`fixed inset-0 z-[40] overflow-hidden transition-opacity duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
               expandData.isExpanded ? "opacity-100" : "opacity-0"
             }`}
           />

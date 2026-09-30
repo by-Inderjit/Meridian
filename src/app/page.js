@@ -1,5 +1,6 @@
 import AboutTextSection from "@/components/home/AboutTextSection";
 import HeroStructure from "@/components/home/HeroStructure";
+import VideoBanner from "@/components/home/VideoBanner";
 import WrapperAnimation from "@/components/home/WrapperAnimation";
 
 export default function Home() {
@@ -8,6 +9,7 @@ export default function Home() {
    <HeroStructure />
    <AboutTextSection />
    <WrapperAnimation />
+   <VideoBanner />
    </>
   );
 }
